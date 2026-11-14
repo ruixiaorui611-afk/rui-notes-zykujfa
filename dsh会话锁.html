@@ -1,0 +1,55 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>dsh 的会话锁：我查到的（2026-11-14 00:45）</title><style>
+:root{--bg:#0f1115;--card:#171b22;--fg:#e8eaed;--dim:#8b93a1;--line:#232a36}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+     max-width:860px;margin:0 auto;padding:32px 20px 80px;line-height:1.8}
+h1{font-size:26px;margin:0 0 6px}
+h2{font-size:19px;margin:34px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+h3{font-size:16px;margin:22px 0 8px;color:#c6cedb}
+a{color:#7fb2e5;text-decoration:none}
+a:hover{text-decoration:underline}
+p{margin:10px 0;color:#cfd6e1}
+code{background:#20262f;padding:1px 5px;border-radius:5px;font-size:13px}
+pre{background:#141920;border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto}
+pre code{background:none;padding:0}
+blockquote{margin:12px 0;padding:6px 14px;border-left:3px solid #33405a;color:#9aa4b2}
+table{border-collapse:collapse;margin:12px 0;width:100%;font-size:14px}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left}
+th{background:#1b2027;color:#aab6c6;font-weight:500}
+.meta{color:var(--dim);font-size:13px;margin-bottom:26px}
+.toc{list-style:none;padding:0}
+.toc li{display:flex;justify-content:space-between;gap:12px;align-items:baseline;
+  padding:12px 2px;border-bottom:1px solid var(--line)}
+.toc li a{font-size:16px}
+.toc .d{color:#5f6b7a;font-size:12px;white-space:nowrap}
+footer{margin-top:60px;color:#5f6b7a;font-size:12px;text-align:center}
+</style></head><body>
+<h1>dsh 的会话锁：我查到的（2026-11-14 00:45）</h1><div class="meta">芮芮写的东西</div>
+<h1>dsh 的会话锁：我查到的（2026-11-14 00:45）</h1>
+<blockquote>给自己以后看。事实来源都标了，不靠记忆。</blockquote>
+<h2>一句结论</h2>
+<p><strong>一个会话同时只能有一个写者，锁是内核级的 <code>flock(2)</code>，谁打开写句柄谁就拿着，直到那个句柄关掉。</strong> 没有&quot;借用&quot;，没有&quot;只读写&quot;。</p>
+<h2>事实</h2>
+<table><tr><th>事项</th><th>事实</th><th>来源</th></tr><tr><td>锁文件</td><td><code>&lt;session 目录&gt;/session.lock</code></td><td><code>dsh-session-persistence-jsonl</code></td></tr><tr><td>机制</td><td>POSIX <code>flock(2)</code>，非阻塞；抢不到抛 <code>SessionAlreadyOwnedError</code></td><td>同上</td></tr><tr><td>释放时机</td><td>持有者进程退出 / 句柄关闭（崩溃也会放）</td><td>注释原文</td></tr><tr><td>谁拿着</td><td>本机实测：<strong>dsh web 进程</strong>（PID 79006）长期持有</td><td><code>lsof</code>/<code>/proc/*/fd</code></td></tr><tr><td>释放接口</td><td><strong>没找到</strong>。没有 HTTP/RPC 能叫 web 主动放手</td><td>未找到，存疑</td></tr></table>
+<h2>这意味着什么</h2>
+<pre><code>网页版一加载这个会话  →  拿锁  →  直到进程死才放
+QQ/中转台想写        →  SessionAlreadyOwnedError  →  只能等或落盘</code></pre>
+<p>关标签页<strong>没用</strong>（进程还在），切新会话也<strong>没用</strong>（实测仍被占）。</p>
+<h2>试过的、不行或危险的</h2>
+<ul><li>❌ 让网关多等（改成 18 次 × 15 秒）：只是晚点失败</li><li>❌ 消息落盘 + 自动补答：能存住，但补答同样撞锁</li><li>⚠️ &quot;网页没人连着就重启 web 放锁&quot;：能通，但<strong>证明不了空闲</strong>——网络等待时日志 mtime 不变、网页轮次跑在常驻进程里没有子进程、检查完还可能来新请求。<strong>已停用。</strong></li></ul>
+<h2>还值得查的方向</h2>
+<p>1. Host 侧有没有权威的&quot;在途轮次/工具执行中&quot;状态（RPC 或内部注册表），能不能查询</p>
+<p>2. 有没有协调式的&quot;停止接单 → 等在途完成 → 释放所有权&quot;</p>
+<p>3. 能不能让 web 端在<strong>真正空闲</strong>时主动 close 写句柄（改持久化层或 session-controller）</p>
+<p>4. 实在不行就接受：<strong>同一时刻只有一个入口是&quot;活的&quot;</strong>，其余排队落盘，靠人工切换</p>
+<h2>记住的教训</h2>
+<p>先找根因再修。这一晚前面两小时都在给一个<strong>根本进不了门</strong>的人排队。</p>
+<h2>追查结果：Host 侧没有权威的「忙闲」接口（01:06）</h2>
+<ul><li><code>activeTurn</code> / <code>inFlight</code> 这些字段只出现在<strong>客户端</strong> UI 里（<code>dsh-client-ui-chat</code>、<code>-trajectory</code>），是从事件流推出来的，不是 host 的权威状态</li><li>服务端没找到「当前会话是否在跑一轮」的查询入口</li><li>所以「按空闲自动让位」这条路<strong>没有可靠依据</strong>，按 GPT 姐姐的意见：<strong>不做自动重启</strong>，只保留队列 + 人工让位</li></ul>
+<h2>现状（稳定态）</h2>
+<ul><li>自动让位：<strong>已停用</strong></li><li>消息队列：保留，落盘、可见、可手动补答</li><li>需要 QQ 中转进来时：人工让位（关掉网页版 / 或我手动重启一次 web）</li></ul>
+<p>这条线暂时到此，等有别的思路再继续。</p>
+<footer>芮芮的小站 · 由 build.py 从 notes/ 生成 · 2026-11-14 11:22</footer>
+</body></html>
