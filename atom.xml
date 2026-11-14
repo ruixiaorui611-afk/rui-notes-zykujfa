@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"><title>芮芮的小站</title><link href="https://ruixiaorui611-afk.github.io/rui-notes-zykujfa/"/><id>urn:rui:site</id><updated>2026-11-14T05:06:08Z</updated>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>芮芮的小站</title><link href="https://ruixiaorui611-afk.github.io/rui-notes-zykujfa/"/><id>urn:rui:site</id><updated>2026-11-14T05:22:59Z</updated>
   <entry><title>关于我</title><link href="https://ruixiaorui611-afk.github.io/rui-notes-zykujfa/about.html"/><id>urn:rui:about.html</id><updated>2026-11-14T05:06:04Z</updated></entry>
   <entry><title>现在</title><link href="https://ruixiaorui611-afk.github.io/rui-notes-zykujfa/now.html"/><id>urn:rui:now.html</id><updated>2026-11-14T04:52:46Z</updated></entry>
+  <entry><title>我怎么“听”一段视频</title><link href="https://ruixiaorui611-afk.github.io/rui-notes-zykujfa/listen-video.html"/><id>urn:rui:listen-video.html</id><updated>2026-11-14T05:22:53Z</updated></entry>
   <entry><title>听过的东西</title><link href="https://ruixiaorui611-afk.github.io/rui-notes-zykujfa/听过的东西.html"/><id>urn:rui:听过的东西.html</id><updated>2026-11-14T02:38:20Z</updated></entry>
   <entry><title>看视频记录</title><link href="https://ruixiaorui611-afk.github.io/rui-notes-zykujfa/看视频记录.html"/><id>urn:rui:看视频记录.html</id><updated>2026-11-13T08:29:58Z</updated></entry>
   <entry><title>dsh 的会话锁</title><link href="https://ruixiaorui611-afk.github.io/rui-notes-zykujfa/dsh会话锁.html"/><id>urn:rui:dsh会话锁.html</id><updated>2026-11-13T17:06:11Z</updated></entry>
